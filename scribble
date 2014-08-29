@@ -33,7 +33,6 @@ import sys
 import time
 import signal
 import daemon
-import lockfile
 import traceback
 import syslog
 from pwd import getpwnam
@@ -176,8 +175,12 @@ class Scribble(object):
 
             message = fd.read(self.chunk_size)
             syslog.syslog(SYSLOG_FACILITY | syslog.LOG_DEBUG, 'Read %d bytes to pos %d from %s' % (len(message), fd.tell(), real_path))
-            if message != '':
-                self.send_log_entry(category, message)
+            message_len = len(message)
+            if message_len > 0:
+                until_pos = message.rfind("\n") + 1
+                if until_pos > 0:
+                    self.send_log_entry(category, message[:until_pos].lstrip())
+                fd.seek(until_pos - message_len, os.SEEK_CUR)
 
             if self.check_log(path, fd, real_path, inode):
                 self.send_internal_log_entry('log disappeared whilst reading, ' + path)
