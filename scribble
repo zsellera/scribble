@@ -32,7 +32,6 @@ import os
 import sys
 import time
 import signal
-import daemon
 import traceback
 import syslog
 from pwd import getpwnam
@@ -250,34 +249,6 @@ if __name__ == '__main__':
         type='float',
     )
     parser.add_option(
-        '--daemon',
-        default=False,
-        dest='daemonize',
-        help='daemonize the server on startup',
-        action="store_true",
-    )
-    parser.add_option(
-        '--user',
-        default='scribe',
-        dest='user',
-        help='The user ID to switch the process to on daemon start.',
-        metavar='USER',
-    )
-    parser.add_option(
-        '--group',
-        default='scribe',
-        dest='group',
-        help='The group ID to switch the process to on daemon start.',
-        metavar='GROUP',
-    )
-    parser.add_option(
-        '--pidfile',
-        default='/var/run/scribe/scribble.pid',
-        dest='pidfile',
-        help='The file which will contain the process ID on daemon start.',
-        metavar='PIDFILE',
-    )
-    parser.add_option(
         '--chunk-size',
         type='int',
         default=10485760,   # 10MB
@@ -288,46 +259,4 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     scribble = Scribble(options.host, options.port, options.config, options.interval, options.chunk_size)
-
-    if options.daemonize:
-
-        try:
-            uid = getpwnam(options.user)[2]
-        except KeyError:
-            uid = os.getuid()
-        try:
-            gid = getgrnam(options.group)[2]
-        except KeyError:
-            gid = os.getgid()
-
-        context = daemon.DaemonContext(
-            working_directory='/var/log',
-            umask=0x002,
-            uid=uid,
-            gid=gid,
-            )
-
-        context.signal_map = {
-            signal.SIGTERM: scribble.stop,
-            signal.SIGHUP: scribble.reload,
-            }
-
-        try:
-            context.open()
-            #lockfile.FileLock('/var/run/scribed_logs.pid'),
-            try:
-                fd = open(options.pidfile, 'w')
-                fd.write(str(os.getpid()))
-                fd.close()
-            except IOError:
-                pass
-            scribble.start()
-            try:
-                os.unlink(options.pidfile)
-            except IOError:
-                pass
-            #context.pidfile.release()
-        except:
-            context.close()
-    else:
-        scribble.start()
+    scribble.start()
