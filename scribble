@@ -58,12 +58,12 @@ class Scribble(object):
     open_logs = {}
     invalid_logs = {}
 
-    def __init__(self, host, port, config, interval, chunk_size, syslog_status):
+    def __init__(self, host, port, config, interval, chunk_size, syslog_disabled):
         self.config = config
         self.interval = interval
         self.reload_config = False
         self.runnable = True
-        self.syslog_status = syslog_status
+        self.syslog_disabled = syslog_disabled
         self.internal_log_format = '%Y-%m-%d_%H-%M-%S ' + os.uname()[1] + ': '
         self.load_categories_and_logs_from_config()
         socket = TSocket.TSocket(host=host, port=port)
@@ -91,7 +91,7 @@ class Scribble(object):
         self.reload_config = True
 
     def syslog(self, severity, message):
-        if self.syslog_status:
+        if not self.syslog_disabled:
             syslog.syslog(SYSLOG_FACILITY | severity, message)
 
     def load_categories_and_logs_from_config(self):
@@ -197,7 +197,7 @@ class Scribble(object):
                 self.open_logs[log] = (fd, real_path, inode)
 
     def start(self):
-        if self.syslog_status:
+        if not self.syslog_disabled:
             syslog.openlog('scribble')
         if self.logs is None:
             self.send_internal_log_entry('invalid config file: ' + self.logs, severity=ERROR)
@@ -296,13 +296,13 @@ if __name__ == '__main__':
     parser.add_option(
         '--disable-syslog',
         default=False,
-        dest='syslog_status',
+        dest='syslog_disabled',
         help='Don\'t do syslog messages',
-        action='store_false',
+        action='store_true',
     )
     options, args = parser.parse_args()
 
-    scribble = Scribble(options.host, options.port, options.config, options.interval, options.chunk_size, options.syslog_status)
+    scribble = Scribble(options.host, options.port, options.config, options.interval, options.chunk_size, options.syslog_disabled)
 
     if options.daemonize:
 
