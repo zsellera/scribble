@@ -135,6 +135,21 @@ class Scribble(object):
         fd.seek(0, 0)
         return fd, real_path, inode
 
+    def open_logs_to_tail(self):
+      now = time.localtime(time.time() - self.interval)
+      for category, log in self.logs:
+        path = time.strftime(log, now)
+        try:
+          fd, real_path, inode = self.open_log(path)
+          fd.seek(0,2) # seek to tail
+          self.open_logs[log] = (fd, real_path, inode)
+          self.send_internal_log_entry('tailing log, ' + path)
+        except FileError:
+          if log not in self.invalid_logs:
+            self.invalid_logs[log] = True
+            self.send_internal_log_entry('unable to open log, ' + path, severity=ERROR)
+          continue
+
     def send_internal_log_entry(self, message, severity=INFO):
         log_prefix = time.strftime(self.internal_log_format, time.localtime(time.time()))
         log_entry = "%s %s %s" % (log_prefix, severity, message)
@@ -204,6 +219,7 @@ class Scribble(object):
         try:
             self.transport.open()
             self.send_internal_log_entry('starting')
+            self.open_logs_to_tail()
             while self.runnable:
                 self.send_logs()
                 if self.reload_config:
